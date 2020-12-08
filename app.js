@@ -1,8 +1,9 @@
+require('dotenv').config();
 var express = require('express');
 var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
-var usersRouter = require('./routes/user');
+var userRouter = require('./middlewares/user');
 var app = express();
 const cors = require('cors');
 const bodyParser = require('body-parser');
@@ -23,7 +24,9 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.use('/register', usersRouter);
+
+
+app.use('/', userRouter);
 
 
 module.exports = app;
