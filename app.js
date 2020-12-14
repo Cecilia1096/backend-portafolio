@@ -1,5 +1,5 @@
 require('dotenv').config()
-const PORT = process.env.PORT || 3000
+const PORT = process.env.PORT || 5000
 var express = require('express')
 var path = require('path')
 var cookieParser = require('cookie-parser')
