@@ -27,8 +27,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 
 
-app.use('/', userRouter);
-
+app.use('/login', userRouter);
+app.use("/forgot-password", userRouter);
+app.use("/reset-password", userRouter);
 
 
 app.listen(PORT, () => {
