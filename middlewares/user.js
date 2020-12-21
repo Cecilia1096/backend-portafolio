@@ -1,12 +1,8 @@
 const express = require('express')
 const router = express.Router()
 const bcrypt = require('bcryptjs')
-const crypto = require('crypto')
 const jwt = require('jsonwebtoken')
 const User = require('../models/user')
-const mailgun = require('mailgun-js')
-const DOMAIN = 'sandboxdc3fcece8fe7470b9493d6a7aa7b3da0.mailgun.org'
-const mg = mailgun({ apiKey: process.env.MAILGUN_APIKEY, domain: DOMAIN })
 
 router.post('/register', async (req, res) => {
   try {
@@ -88,65 +84,6 @@ router.post('/tokenisvalid', async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message })
   }
-})
-
-router.post('/forgot-password', (req, res) => {
-  crypto.randomBytes(32, (err, buffer) => {
-    if (err) {
-      console.log(err)
-    }
-    const token = buffer.toString('hex')
-    User.findOne({ email: req.body.email }).then((user) => {
-      if (!user) {
-        return res
-          .status(422)
-          .json({ error: 'There is no user with this email' })
-      }
-      user.resetToken = token
-      user.expireToken = Date.now() + 60000
-      user.save().then((result) => {
-        const data = {
-          to: user.email,
-          from: 'no-replay@clickit.com',
-          subject: 'Restablecimiento de contraseña',
-          html: `
-                 <p>Solicitaste restablecer tu contraseña,</p>
-                 <h5>click here:<a href="http://localhost:3000/reset-password/${token}">link</a>to reset password</h5>
-                 `
-        }
-        mg.messages().send(data, function (error, body) {
-          if (error) {
-            return res.json({ error: 'Link error when resetting password' })
-          }
-        })
-        res.json({ message: 'Check your email' })
-      })
-    })
-  })
-})
-
-router.post('/reset-password', (req, res) => {
-  const newPassword = req.body.password
-  const sentToken = req.body.token
-  User.findOne({ resetToken: sentToken, expireToken: { $gt: Date.now() } })
-    .then((user) => {
-      if (!user) {
-        return res
-          .status(422)
-          .json({ error: 'Please try again, session expired' })
-      }
-      bcrypt.hash(newPassword, 12).then((hashedpassword) => {
-        user.password = hashedpassword
-        user.resetToken = undefined
-        user.expireToken = undefined
-        user.save().then((saveduser) => {
-          res.json({ message: 'Password updated successfully' })
-        })
-      })
-    })
-    .catch((error) => {
-      console.log(error)
-    })
 })
 
 module.exports = router
