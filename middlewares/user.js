@@ -12,11 +12,9 @@ router.post(
       if (!email || !password || !passwordCheck)
         return res.status(400).json({ msg: 'No all fields have been entered.' })
       if (password.length < 10)
-        return res
-          .status(400)
-          .json({
-            msg: 'The password needs to be at least 10 charactres long.'
-          })
+        return res.status(400).json({
+          msg: 'The password needs to be at least 10 charactres long.'
+        })
       if (password !== passwordCheck)
         return res
           .status(400)
