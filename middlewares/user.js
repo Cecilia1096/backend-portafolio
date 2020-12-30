@@ -1,10 +1,14 @@
 const express = require('express')
 const router = express.Router()
+const crypto = require('crypto')
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
+const mailgun = require('mailgun-js')
+const DOMAIN = 'sandboxdc3fcece8fe7470b9493d6a7aa7b3da0.mailgun.org'
+const mg = mailgun({ apiKey: process.env.MAILGUN_APIKEY, domain: DOMAIN })
 const User = require('../models/user')
 
-router.post('/register', async (req, res) => {
+router.post('/api/register', async (req, res) => {
   try {
     let { email, password, passwordCheck, displayName } = req.body
     if (!email || !password || !passwordCheck)
@@ -41,7 +45,7 @@ router.post('/register', async (req, res) => {
   }
 })
 
-router.post('/login', async (req, res) => {
+router.post('/api/login', async (req, res) => {
   try {
     const { email, password } = req.body
     if (!email || !password)
@@ -69,7 +73,7 @@ router.post('/login', async (req, res) => {
   }
 })
 
-router.post('/tokenisvalid', async (req, res) => {
+router.post('/api/tokenisvalid', async (req, res) => {
   try {
     const token = req.header('x-auth-token')
     if (!token) return res.json(false)
@@ -84,6 +88,65 @@ router.post('/tokenisvalid', async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message })
   }
+})
+
+router.post('/api/forgot-password', (req, res) => {
+  crypto.randomBytes(32, (error, buffer) => {
+    if (error) {
+      console.log(error)
+    }
+    const token = buffer.toString('hex')
+    User.findOne({ email: req.body.email }).then((user) => {
+      if (!user) {
+        return res
+          .status(422)
+          .json({ error: 'There is no user with this email' })
+      }
+      user.resetToken = token
+      user.expireToken = Date.now() + 60000
+      user.save().then((result) => {
+        const data = {
+          to: user.email,
+          from: 'no-replay@clickit.com',
+          subject: 'Password reset',
+          html: `
+             <p>You requested to reset your password,</p>
+             <h5>click here: <a href=https://me-portfolio-api.herokuapp.com/api/reset-password/${token}">link</a> to reset password</h5>
+             `
+        }
+        mg.messages().send(data, function (error, body) {
+          if (error) {
+            return res.json({ error: 'Link error when resetting password' })
+          }
+        })
+        res.json({ message: 'Check your email' })
+      })
+    })
+  })
+})
+
+router.post('/api/reset-password', (req, res) => {
+  const newPassword = req.body.password
+  const sentToken = req.body.token
+  User.findOne({ resetToken: sentToken, expireToken: { $gt: Date.now() } })
+    .then((user) => {
+      if (!user) {
+        return res
+          .status(422)
+          .json({ error: 'Please try again, session expired' })
+      }
+      bcrypt.hash(newPassword, 12).then((hashedpassword) => {
+        user.password = hashedpassword
+        user.resetToken = undefined
+        user.expireToken = undefined
+        user.save().then((saveduser) => {
+          res.json({ message: 'Password updated successfully' })
+        })
+      })
+    })
+    .catch((error) => {
+      console.log(error)
+    })
 })
 
 module.exports = router
